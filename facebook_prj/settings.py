@@ -27,6 +27,13 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+ASGI_APPLICATION = 'facebook_prj.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
 
 # Application definition
 
@@ -51,6 +58,7 @@ INSTALLED_APPS = [
     'crispy_forms',
     'taggit',
     'import_export',
+    'channels',
     
 ]
 
@@ -77,6 +85,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processor.my_context_processor',
             ],
         },
     },

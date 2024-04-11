@@ -18,12 +18,15 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf.urls.static import static
 from django.conf import settings
+from core.routing import websocket_urlpatterns
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("", include("core.urls")),
     path("user/", include("userauths.urls")),
     
+    # Web socket
+    path("ws/", include(websocket_urlpatterns)),
 ]
 
 

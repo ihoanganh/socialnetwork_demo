@@ -5,13 +5,43 @@ from django.utils.timesince import timesince
 import shortuuid
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
+from django.db.models import OuterRef, Subquery, Q
+from django.core.paginator import Paginator
 
-from core.models import Post, Comment, ReplyComment
+
+from core.models import Post, Comment, ReplyComment, Friend, FriendRequest, Notification, ChatMessage
+from userauths.models import User
+
+#Notification keys
+noti_new_like = 'New Like' #models
+noti_new_follower = 'New Follower'
+noti_friend_request = 'Friend Request'
+noti_new_comment = 'New Comment'
+noti_comment_liked = 'Comment Liked'
+noti_comment_replied = 'Comment Replied'
+noti_friend_request_accepted = 'Friend Request Accept'
+
+
+
+def send_noti(user, sender, post, comment, notification_type):
+    notification = Notification.objects.create(
+        user = user,
+        sender = sender,
+        post = post,
+        comment = comment,
+        notification_type = notification_type,
+    )
+    return notification
+
+
 
 @login_required
 def index(request):
     posts = Post.objects.filter(active=True, visibility="Everyone").order_by("-id")
     # posts = Post.objects.all()
+    paginator = Paginator(posts, 3)  
+    page_number = request.GET.get('page')
+    posts = paginator.get_page(page_number)
     context = {
         "posts":posts
     }
@@ -72,11 +102,16 @@ def like_post(request):
     if user in post.likes.all(): #vi like lien ket nhieu nhieu voi user nen phai check user
         post.likes.remove(user) # add vs remove ko can post_save
         bool = False
+        
+        
+        
     else:
         post.likes.add(user)
         bool = True 
         
         #send noti
+        if post.user != request.user:
+            send_noti(post.user, user, post, None, noti_new_like)
         
     data = {
         'bool':bool,
@@ -99,6 +134,8 @@ def comment_on_post(request):
         user = user,
     )
     
+    if new_comment.user != post.user:
+            send_noti(post.user, user, post, new_comment, noti_new_comment)
     data = {
         "bool": True,
         "comment": new_comment.comment,
@@ -124,6 +161,9 @@ def like_comment(request):
         comment.likes.add(user)
         bool = True
         
+        if comment.user != user:
+            send_noti(comment.user, user, comment.post, comment, noti_comment_liked)
+        
     data = {
         "bool": bool,
         "likes":comment.likes.all().count(),
@@ -144,7 +184,9 @@ def reply_comment(request):
         user = user,
         reply = reply,
     )
-    
+    if comment.user != user:
+        send_noti(comment.user, user, comment.post, comment, noti_comment_replied)
+        
     data = {
         "bool": True,
         "reply": new_reply.reply,
@@ -176,3 +218,203 @@ def delete_reply(request):
         "bool": True
     }
     return JsonResponse({"data":data})
+
+def add_friend(request):
+    sender = request.user
+    receiver_id = request.GET['id']
+    bool = False
+    
+    if sender.id == int(receiver_id):
+        return JsonResponse({"error":"You cannot send a friend request to yourself"})
+    
+    receiver = User.objects.get(id=receiver_id)
+    
+    try:
+        friend_request = FriendRequest.objects.get(sender=sender, receiver=receiver)
+        if friend_request:
+            friend_request.delete()
+        bool = False
+        return JsonResponse({"error":"Cancelled", "bool":bool})
+
+    except FriendRequest.DoesNotExist:
+        friend_request = FriendRequest(sender=sender, receiver=receiver)
+        friend_request.save()
+        bool = True
+        
+        send_noti(receiver, sender, None, None, noti_friend_request)
+        
+        
+        return JsonResponse({"success":"Sent", "bool":bool})
+
+def accept_friend_request(request):
+    id = request.GET['id']
+    
+    receiver = request.user #dung
+    sender = User.objects.get(id=id) #ha
+    
+    friend_request = FriendRequest.objects.filter(receiver=receiver, sender=sender).first()
+    
+    receiver.profile.friends.add(sender)
+    sender.profile.friends.add(receiver)
+    
+    friend_request.delete()
+    
+    send_noti(receiver, sender, None, None, noti_friend_request_accepted)
+    
+    data = {
+        'message': "Accepted",
+        'bool': True,
+    }
+    
+    return JsonResponse({'data':data})
+
+def reject_friend_request(request):
+    id = request.GET['id']
+    
+    receiver = request.user #dung
+    sender = User.objects.get(id=id) #ha
+    
+    friend_request = FriendRequest.objects.filter(receiver=receiver, sender=sender).first()
+    
+    friend_request.delete()
+    
+    data = {
+        'message': "Rejected",
+        'bool': True,
+    }
+    
+    return JsonResponse({'data':data})
+
+
+def unfriend(request):
+    sender = request.user 
+    friend_id = request.GET['id']
+    bool = False
+    
+    if sender.id == int(friend_id):
+        return JsonResponse({"error":"You cannot unfriend yourself"})
+    
+    my_friend = User.objects.get(id=friend_id)
+    
+    if my_friend in sender.profile.friends.all():
+        sender.profile.friends.remove(my_friend)
+        my_friend.profile.friends.remove(sender)
+        bool = True
+        return JsonResponse({"success":"Unfriend Successfully.", "bool":bool})
+
+
+@login_required
+def inbox(request):
+    user_id = request.user
+    
+    chat_message = ChatMessage.objects.filter(
+        id__in = Subquery(
+            User.objects.filter(
+                Q(chat_sender__chat_receiver = user_id)  |
+                Q(chat_receiver__chat_sender = user_id)
+            ).distinct().annotate(
+                last_msg = Subquery(
+                    ChatMessage.objects.filter(
+                        Q(chat_sender=OuterRef("id"), chat_receiver=user_id) |
+                        Q(chat_receiver=OuterRef("id"), chat_sender=user_id)
+                    ).order_by("-id")[:1].values_list("id", flat=True)
+                )
+            ).values_list("last_msg", flat=True).order_by("-id")
+        )
+    ).order_by("-id")
+    
+    context = {
+        "chat_message": chat_message,
+    }
+    
+    return render(request, "chat/inbox.html", context)
+
+
+def inbox_detail(request, username):
+    user_id = request.user
+    
+    message_list = ChatMessage.objects.filter(
+        id__in = Subquery(
+            User.objects.filter(
+                Q(chat_sender__chat_receiver = user_id)  |
+                Q(chat_receiver__chat_sender = user_id)
+            ).distinct().annotate(
+                last_msg = Subquery(
+                    ChatMessage.objects.filter(
+                        Q(chat_sender=OuterRef("id"), chat_receiver=user_id) |
+                        Q(chat_receiver=OuterRef("id"), chat_sender=user_id)
+                    ).order_by("-id")[:1].values_list("id", flat=True)
+                )
+            ).values_list("last_msg", flat=True).order_by("-id")
+        )
+    ).order_by("-id")
+    
+    chat_sender = request.user
+    chat_receiver = User.objects.get(username=username)
+    receiver_detail = User.objects.get(username=username)
+
+    message_detail = ChatMessage.objects.filter(
+        Q(chat_sender=chat_sender, chat_receiver=chat_receiver) | Q(chat_sender=chat_receiver, chat_receiver=chat_sender)
+    ).order_by("date")
+    
+    message_detail.update(is_read=True)
+    
+    # if message_detail:
+    #     r = message_detail.first()
+    #     receiver = User.objects.get(username=r.chat_receiver)
+    # else:
+    #     receiver = User.objects.get(username=username)
+    
+    context = {
+        "message_detail": message_detail,
+        "chat_receiver": chat_receiver,
+        "chat_sender": chat_sender,
+        "receiver_detail": receiver_detail,
+        "message_list": message_list,
+    }
+    
+    return render(request, "chat/inbox_detail.html", context)
+
+def block_user(request):
+    id = request.GET['id']
+    user = request.user
+    friend = User.objects.get(id=id)
+    
+    if user.id == friend.id:
+        return JsonResponse({"error": "You cannot block yourself"})
+    
+    if friend in user.profile.friends.all():
+        user.profile.blocked.add(friend)
+        user.profile.friends.remove(friend)
+        friend.profile.friends.remove(user)
+    else:
+        return JsonResponse({"error": "You cannot block someone that is not your friend"})
+    
+    return JsonResponse({"success": "User Blocked"})
+
+def load_more_posts(request):
+    all_posts = Post.objects.filter(active=True, visibility="Everyone").order_by('-id')
+
+    # Paginate the posts
+    paginator = Paginator(all_posts, 3)  
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    posts_data = []
+    for post in page_obj:
+        post_data = {
+            'title': post.title,
+            'profile_image': post.user.profile.image.url,
+            'full_name': post.user.profile.full_name,
+            'image_url': post.image.url if post.image else None,
+            'video': post.video.url if post.video else None,
+            'id': post.id,
+            'id': post.id,
+            'likes': post.likes.count(),
+            'slug': post.slug,
+            'views': post.views,
+            'date': timesince(post.date),
+        }
+        posts_data.append(post_data)
+
+    return JsonResponse({'posts': posts_data})
