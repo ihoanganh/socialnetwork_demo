@@ -1,0 +1,74 @@
+{% extends 'partials/base.html' %}
+{% load static %}
+{% block content %}
+  <!-- Main Contents -->
+  <div class="main_content">
+    <div class="mcontainer">
+
+        <!--  breadcrumb -->
+        {% comment %} <div class="breadcrumb-area py-0">
+            <div class="breadcrumb">
+                <ul class="m-0">
+                    <li>
+                        <a href="{% url 'core:groups'%}">Groups</a>
+                    </li>
+                    <li class="active">
+                        <a href="#">Create New Group Chat</a>
+                    </li>
+                </ul>
+            </div>
+        </div> {% endcomment %}
+
+
+        <!-- create page-->
+        <div class="max-w-2xl m-auto shadow-md rounded-md bg-white lg:mt-20">  
+            <form id="group-form" method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+                <!-- form header -->
+            <div class="text-center border-b border-gray-100 py-6">
+                <h3 class="font-bold text-xl"> Create New Group Chat</h3>
+            </div>
+
+            <!-- form body -->
+            <div class="p-10 space-y-7">
+
+                <div class="line">
+                    <input class="line__input" id="group-chat-name" name="group-chat-name" type="text" onkeyup="this.setAttribute('value', this.value);" value="" autocomplete="off">
+                    <span for="username" class="line__placeholder"> Group Name </span>
+                </div>
+
+                <div class="line h-32"> 
+                    <textarea class="line__input h-32"  id="group-chat-description" name="group-chat-description" type="text" onkeyup="this.setAttribute('value', this.value);" value="" autocomplete="off"></textarea>
+                    <span for="username" class="line__placeholder"> Group description </span> 
+                </div>
+
+                <div class="px-2 space-y-2">
+                    <label for="group-chat-members" class="font-semibold text-base"> Add Members </label>
+                    <div>
+                        {% for friend in request.user.profile.friends.all %}
+                            <label class="flex items-center space-x-3">
+                                <input type="checkbox" name="members[]" value="{{ friend.id }}" class="form-checkbox h-4 w-4 text-blue-600">
+                                <img src="{{ friend.profile.image.url }}" alt="{{ friend.username }}" class="w-8 h-8 rounded-full">
+                                <span>{{ friend.profile.full_name }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+            </div>
+            
+            <!-- form footer -->
+            <div class="flex justify-center border-gray-100 py-8">
+                <button type="submit" class="button lg:w-1/3">
+                    Create Now
+                </button>
+            </div>
+        </form>
+        </div>
+
+
+    </div>
+</div>
+
+</div>
+{% endblock %}

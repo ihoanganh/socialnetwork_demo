@@ -1,0 +1,79 @@
+/* CSS cho form */
+form {
+    max-width: 400px; /* Chiều rộng tối đa của form */
+    margin: 0 auto; /* Căn giữa form */
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+  }
+  
+  /* CSS cho mỗi phần tử input */
+  form div {
+    margin-bottom: 15px; /* Khoảng cách giữa các phần tử */
+  }
+  
+  /* CSS cho nhãn của input */
+  label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+  }
+  
+  /* CSS cho input */
+  input[type="text"],
+  input[type="password"],
+  input[type="number"],
+  select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  
+  /* CSS cho nút submit */
+  button[type="submit"] {
+    background-color: #4caf50;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  /* CSS cho nút submit khi hover */
+  button[type="submit"]:hover {
+    background-color: #45a049;
+  }
+  
+/* CSS cho phần tử bao bọc */
+.GetUser {
+    padding: 20px; /* Khoảng cách giữa phần tử và nội dung bên trong */
+  }
+  
+  /* CSS cho danh sách người dùng */
+  .GetUser  ul {
+    list-style-type: none; /* Loại bỏ dấu đầu dòng của danh sách */
+    padding: 0;
+  }
+  
+  /* CSS cho mỗi mục trong danh sách */
+  .GetUser li {
+    margin-bottom: 20px; /* Khoảng cách giữa các mục */
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Đổ bóng cho mỗi mục */
+    background-color: #fff; /* Màu nền của mỗi mục */
+  }
+  
+  /* CSS cho đường kẻ ngang */
+  .GetUser hr {
+    border: none;
+    border-top: 1px solid #ccc; /* Đường kẻ màu xám */
+    margin: 10px 0; /* Khoảng cách giữa các đường kẻ */
+  }
+div strong {
+    display: inline-block;
+  }
+  
